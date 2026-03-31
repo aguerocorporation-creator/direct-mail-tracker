@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Direct Mail Performance Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -402,6 +403,54 @@
     .table-wrap { overflow-x: auto; }
     .nav-tabs .nav-tab { padding: 7px 10px; font-size: 12px; }
   }
+
+  /* SETUP SCREEN */
+  .setup-screen {
+    display: none;
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .setup-screen.show { display: flex; }
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 36px 32px;
+    max-width: 480px;
+    width: 100%;
+  }
+  .setup-logo { font-size: 28px; margin-bottom: 16px; }
+  .setup-title { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .setup-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+  .setup-fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+  .setup-fields input {
+    padding: 10px 14px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--sans);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    width: 100%;
+  }
+  .setup-fields input:focus { border-color: var(--accent); }
+  .setup-help { font-size: 12px; color: var(--hint); margin-top: 14px; line-height: 1.7; }
+  .setup-help a { color: var(--accent); }
+  .sync-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .sync-dot.offline { background: var(--amber); }
+  .sync-status { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 </style>
 </head>
 <body>
@@ -411,13 +460,34 @@
     <div class="nav-brand-icon">✉</div>
     Direct Mail Tracker
   </div>
-  <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showPage('dashboard')">Dashboard</button>
-    <button class="nav-tab" onclick="showPage('add')">Log Campaign</button>
-    <button class="nav-tab" onclick="showPage('compare')">Compare</button>
-    <button class="nav-tab" onclick="showPage('campaigns')">All Campaigns</button>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="sync-status" id="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Synced</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('dashboard')">Dashboard</button>
+      <button class="nav-tab" onclick="showPage('add')">Log Campaign</button>
+      <button class="nav-tab" onclick="showPage('compare')">Compare</button>
+      <button class="nav-tab" onclick="showPage('campaigns')">All Campaigns</button>
+    </div>
   </div>
 </nav>
+
+<!-- SETUP SCREEN -->
+<div class="setup-screen" id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-logo">✉</div>
+    <div class="setup-title">Connect your database</div>
+    <div class="setup-sub">Enter your Supabase credentials to sync data across all your devices. Your data stays private in your own database.</div>
+    <div class="setup-fields">
+      <input id="setup-url" type="text" placeholder="Supabase Project URL  (https://xxx.supabase.co)">
+      <input id="setup-key" type="text" placeholder="Supabase anon public key">
+    </div>
+    <button class="btn-save" style="width:100%" onclick="connectSupabase()">Connect & sync</button>
+    <button class="btn-clear" style="width:100%;margin-top:10px;text-align:center" onclick="skipSetup()">Skip — use local storage only</button>
+    <div class="setup-help">
+      Don't have Supabase yet? <a href="https://supabase.com" target="_blank">supabase.com</a> → New project → SQL Editor → run the setup SQL → Settings → API → copy URL and anon key.
+    </div>
+  </div>
+</div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page active">
@@ -657,17 +727,125 @@
 <div id="toast"></div>
 
 <script>
-// ── DATA ────────────────────────────────────────────────
+// ── SUPABASE + DATA LAYER ────────────────────────────────
 const STORAGE_KEY = 'dmpt_campaigns_v1';
+const SB_URL_KEY  = 'dmpt_sb_url';
+const SB_KEY_KEY  = 'dmpt_sb_key';
 let campaigns = [];
 let rateChartInst = null;
-let cmpChartInst = null;
+let cmpChartInst  = null;
+let sbClient = null;
 
+function getSbCreds() {
+  return {
+    url: localStorage.getItem(SB_URL_KEY) || '',
+    key: localStorage.getItem(SB_KEY_KEY) || ''
+  };
+}
+
+function initSupabase(url, key) {
+  try {
+    sbClient = supabase.createClient(url, key);
+    return true;
+  } catch(e) {
+    sbClient = null;
+    return false;
+  }
+}
+
+async function connectSupabase() {
+  const url = document.getElementById('setup-url').value.trim();
+  const key = document.getElementById('setup-key').value.trim();
+  if (!url || !key) { toast('Please enter both URL and key'); return; }
+  toast('Connecting...');
+  const ok = initSupabase(url, key);
+  if (!ok) { toast('Invalid credentials — check and try again'); return; }
+  // Test connection
+  const { error } = await sbClient.from('campaigns').select('id').limit(1);
+  if (error) {
+    toast('Connection failed: ' + error.message);
+    sbClient = null;
+    return;
+  }
+  localStorage.setItem(SB_URL_KEY, url);
+  localStorage.setItem(SB_KEY_KEY, key);
+  document.getElementById('setup-screen').classList.remove('show');
+  setSyncStatus('syncing');
+  await loadFromSupabase();
+  renderDashboard();
+  toast('Connected! Data synced.');
+}
+
+function skipSetup() {
+  document.getElementById('setup-screen').classList.remove('show');
+  load();
+  seedDemo();
+  renderDashboard();
+  setSyncStatus('local');
+}
+
+function setSyncStatus(state) {
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (state === 'synced')  { dot.className = 'sync-dot';         label.textContent = 'Synced'; }
+  if (state === 'syncing') { dot.className = 'sync-dot offline'; label.textContent = 'Syncing…'; }
+  if (state === 'local')   { dot.className = 'sync-dot offline'; label.textContent = 'Local only'; }
+  if (state === 'error')   { dot.className = 'sync-dot'; dot.style.background='#943030'; label.textContent = 'Sync error'; }
+}
+
+// ── LOCAL FALLBACK ───────────────────────────────────────
 function load() {
   try { campaigns = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { campaigns = []; }
 }
-function save() {
+function saveLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
+}
+
+// ── SUPABASE CRUD ────────────────────────────────────────
+async function loadFromSupabase() {
+  if (!sbClient) return;
+  setSyncStatus('syncing');
+  const { data, error } = await sbClient.from('campaigns').select('*').order('created_at', { ascending: false });
+  if (error) { setSyncStatus('error'); toast('Sync error: ' + error.message); return; }
+  campaigns = (data || []).map(r => ({
+    id: r.id, zip: r.zip, list: r.list, mail: r.mail, color: r.color,
+    qty: r.qty, date: r.date, responses: r.responses,
+    calls: r.calls, texts: r.texts, forms: r.forms
+  }));
+  saveLocal();
+  setSyncStatus('synced');
+}
+
+async function insertToSupabase(c) {
+  if (!sbClient) return;
+  setSyncStatus('syncing');
+  const { error } = await sbClient.from('campaigns').insert([{
+    id: c.id, zip: c.zip, list: c.list, mail: c.mail, color: c.color,
+    qty: c.qty, date: c.date, responses: c.responses,
+    calls: c.calls, texts: c.texts, forms: c.forms
+  }]);
+  if (error) { setSyncStatus('error'); toast('Sync error: ' + error.message); }
+  else setSyncStatus('synced');
+}
+
+async function updateInSupabase(c) {
+  if (!sbClient) return;
+  setSyncStatus('syncing');
+  const { error } = await sbClient.from('campaigns').update({
+    zip: c.zip, list: c.list, mail: c.mail, color: c.color,
+    qty: c.qty, date: c.date, responses: c.responses,
+    calls: c.calls, texts: c.texts, forms: c.forms
+  }).eq('id', c.id);
+  if (error) { setSyncStatus('error'); toast('Sync error: ' + error.message); }
+  else setSyncStatus('synced');
+}
+
+async function deleteFromSupabase(id) {
+  if (!sbClient) return;
+  setSyncStatus('syncing');
+  const { error } = await sbClient.from('campaigns').delete().eq('id', id);
+  if (error) { setSyncStatus('error'); toast('Sync error: ' + error.message); }
+  else setSyncStatus('synced');
 }
 
 // ── HELPERS ──────────────────────────────────────────────
@@ -712,7 +890,7 @@ function showPage(id) {
 }
 
 // ── FORM ─────────────────────────────────────────────────
-function addCampaign() {
+async function addCampaign() {
   const zip   = document.getElementById('f-zip').value.trim();
   const list  = document.getElementById('f-list').value;
   const mail  = document.getElementById('f-mail').value;
@@ -730,8 +908,10 @@ function addCampaign() {
   if (!mail) { msg.textContent = 'Mail type is required.'; msg.style.color = 'var(--red)'; return; }
   if (!qty)  { msg.textContent = 'Quantity sent is required.'; msg.style.color = 'var(--red)'; return; }
 
-  campaigns.push({ id: uid(), zip, list, mail, color, qty, date, responses: resp, calls, texts, forms });
-  save();
+  const newCampaign = { id: uid(), zip, list, mail, color, qty, date, responses: resp, calls, texts, forms };
+  campaigns.push(newCampaign);
+  saveLocal();
+  await insertToSupabase(newCampaign);
   msg.textContent = '✓ Campaign saved.';
   msg.style.color = 'var(--green)';
   setTimeout(() => { msg.textContent = ''; }, 2500);
@@ -1019,10 +1199,11 @@ function renderTable() {
   }).join('');
 }
 
-function deleteCampaign(id) {
+async function deleteCampaign(id) {
   if (!confirm('Delete this campaign?')) return;
   campaigns = campaigns.filter(c => c.id !== id);
-  save();
+  saveLocal();
+  await deleteFromSupabase(id);
   renderTable();
   toast('Campaign deleted');
 }
@@ -1049,7 +1230,7 @@ function closeModal() {
   document.getElementById('editModal').classList.remove('open');
 }
 
-function saveEdit() {
+async function saveEdit() {
   const id = document.getElementById('edit-id').value;
   const idx = campaigns.findIndex(c => c.id === id);
   if (idx === -1) return;
@@ -1066,17 +1247,19 @@ function saveEdit() {
     texts:     parseInt(document.getElementById('e-texts').value) || 0,
     forms:     parseInt(document.getElementById('e-forms').value) || 0,
   };
-  save();
+  saveLocal();
+  await updateInSupabase(campaigns[idx]);
   closeModal();
   renderTable();
   toast('Campaign updated');
 }
 
-function deleteFromModal() {
+async function deleteFromModal() {
   const id = document.getElementById('edit-id').value;
   if (!confirm('Delete this campaign? This cannot be undone.')) return;
   campaigns = campaigns.filter(c => c.id !== id);
-  save();
+  saveLocal();
+  await deleteFromSupabase(id);
   closeModal();
   renderTable();
   toast('Campaign deleted');
@@ -1278,9 +1461,26 @@ function seedDemo() {
 }
 
 // ── INIT ─────────────────────────────────────────────────
-load();
-seedDemo();
-renderDashboard();
+async function init() {
+  const { url, key } = getSbCreds();
+  if (url && key) {
+    // Auto-connect with saved credentials
+    const ok = initSupabase(url, key);
+    if (ok) {
+      setSyncStatus('syncing');
+      load(); // load local cache first so UI isn't empty
+      renderDashboard();
+      await loadFromSupabase();
+      renderDashboard();
+      return;
+    }
+  }
+  // No credentials saved — show setup screen
+  document.getElementById('setup-screen').classList.add('show');
+  setSyncStatus('local');
+}
+
+init();
 </script>
 </body>
 </html>
