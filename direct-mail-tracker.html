@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Direct Mail Performance Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --nav: #161616;
+    --nav2: #1f1f1f;
+    --accent: #c97d0c;
+    --accent-bright: #f0a020;
+    --bg: #f4f2ee;
+    --surface: #ffffff;
+    --surface2: #f9f8f5;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #1a1a1a;
+    --muted: #6b6860;
+    --hint: #9c9890;
+    --green: #2d6e3a;
+    --green-bg: #e8f3e9;
+    --red: #943030;
+    --red-bg: #fceaea;
+    --amber: #7a4f0a;
+    --amber-bg: #fef0d6;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* NAV */
+  .nav {
+    background: var(--nav);
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e8e4dc;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .03em;
+  }
+  .nav-brand-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .nav-tabs { display: flex; gap: 2px; }
+  .nav-tab {
+    background: transparent;
+    border: none;
+    color: rgba(232,228,220,.45);
+    padding: 7px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: all .15s;
+    font-weight: 400;
+  }
+  .nav-tab:hover { color: rgba(232,228,220,.8); background: rgba(255,255,255,.06); }
+  .nav-tab.active { color: var(--accent-bright); background: rgba(255,255,255,.08); font-weight: 500; }
+
+  /* PAGES */
+  .page { display: none; max-width: 1080px; margin: 0 auto; padding: 28px 24px 60px; }
+  .page.active { display: block; }
+
+  /* SECTION */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--hint);
+    margin-bottom: 14px;
+  }
+
+  /* METRIC CARDS */
+  .metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .metric-card-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  .metric-card-value { font-size: 26px; font-weight: 300; color: var(--text); font-family: var(--mono); }
+  .metric-card-sub { font-size: 11px; color: var(--hint); margin-top: 5px; }
+
+  /* TOP / WORST */
+  .spotlight-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+  .spotlight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    border-left: 3px solid var(--border);
+  }
+  .spotlight-card.best { border-left-color: var(--green); }
+  .spotlight-card.worst { border-left-color: var(--red); }
+  .spotlight-tag { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 8px; }
+  .spotlight-tag.best { color: var(--green); }
+  .spotlight-tag.worst { color: var(--red); }
+  .spotlight-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .spotlight-detail { font-size: 12px; color: var(--muted); }
+  .spotlight-rate { font-size: 22px; font-weight: 300; font-family: var(--mono); color: var(--text); margin-top: 6px; }
+
+  /* WINNERS */
+  .winners-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .winner-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .winner-cat { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--hint); margin-bottom: 8px; }
+  .winner-icon { font-size: 18px; margin-bottom: 6px; }
+  .winner-name { font-size: 15px; font-weight: 500; color: var(--text); }
+  .winner-rate { font-size: 12px; color: var(--accent); margin-top: 4px; font-family: var(--mono); }
+
+  /* CHART */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 20px 16px;
+    margin-bottom: 16px;
+  }
+  .chart-card-title { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 16px; }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .tbl th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--hint); white-space: nowrap; }
+  .tbl td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .tbl tbody tr:last-child td { border-bottom: none; }
+  .tbl tbody tr:hover td { background: var(--surface2); }
+
+  /* RATE PILL */
+  .rate-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--mono);
+  }
+  .rate-high { background: var(--green-bg); color: var(--green); }
+  .rate-mid  { background: var(--amber-bg); color: var(--amber); }
+  .rate-low  { background: var(--red-bg);   color: var(--red); }
+
+  /* FORM */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    max-width: 780px;
+  }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .field input, .field select {
+    padding: 9px 12px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--sans);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+  .form-actions { display: flex; gap: 10px; align-items: center; margin-top: 22px; }
+  .btn-save {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-save:hover { background: var(--accent-bright); }
+  .btn-clear {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+  }
+  .form-hint { font-size: 12px; color: var(--hint); margin-left: 4px; }
+
+  /* FILTER BAR */
+  .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+  .filter-bar select {
+    padding: 7px 12px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--sans);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+  }
+  .filter-bar select:focus { border-color: var(--accent); }
+  .filter-label { font-size: 12px; color: var(--muted); }
+
+  /* EMPTY */
+  .empty {
+    text-align: center;
+    padding: 72px 24px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 14px; }
+  .empty-h { font-size: 17px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .empty-p { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .btn-start {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--sans);
+    cursor: pointer;
+  }
+
+  /* DELETE */
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--hint);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color .12s;
+  }
+  .del-btn:hover { color: var(--red); }
+
+  /* TOAST */
+  #toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--nav);
+    color: #e8e4dc;
+    padding: 11px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Compare bars */
+  .compare-bar-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .compare-row { display: flex; align-items: center; gap: 12px; }
+  .compare-label { font-size: 13px; color: var(--text); min-width: 160px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .compare-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 10px; overflow: hidden; }
+  .compare-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s; }
+  .compare-val { font-size: 12px; font-family: var(--mono); color: var(--muted); min-width: 48px; text-align: right; }
+
+  /* EDIT MODAL */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 28px;
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 18px; color: var(--muted); line-height: 1;
+    padding: 4px 8px; border-radius: 4px;
+    transition: color .12s;
+  }
+  .modal-close:hover { color: var(--red); }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--red-bg);
+    color: var(--red);
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .btn-danger:hover { background: var(--red-bg); }
+
+  /* PDF / EXPORT */
+  .export-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .btn-export {
+    background: var(--nav);
+    border: none;
+    color: #e8e4dc;
+    padding: 9px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--sans);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: background .15s;
+  }
+  .btn-export:hover { background: #2a2a2a; }
+
+  /* PDF print styles */
+  @media print {
+    .nav, .filter-bar, .form-actions, .del-btn, .edit-btn, .modal-backdrop, .export-bar { display: none !important; }
+    body { background: #fff; }
+    .page { display: block !important; padding: 0; max-width: 100%; }
+    .page:not(#page-dashboard) { display: none !important; }
+    #page-dashboard { display: block !important; }
+    .chart-card { page-break-inside: avoid; }
+    @page { margin: 20mm; }
+  }
+
+  .edit-btn {
+    background: none;
+    border: none;
+    color: var(--hint);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color .12s;
+    margin-right: 2px;
+  }
+  .edit-btn:hover { color: var(--accent); }
+
+  @media (max-width: 640px) {
+    .spotlight-row { grid-template-columns: 1fr; }
+    .table-wrap { overflow-x: auto; }
+    .nav-tabs .nav-tab { padding: 7px 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-brand-icon">✉</div>
+    Direct Mail Tracker
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-tab" onclick="showPage('add')">Log Campaign</button>
+    <button class="nav-tab" onclick="showPage('compare')">Compare</button>
+    <button class="nav-tab" onclick="showPage('campaigns')">All Campaigns</button>
+  </div>
+</nav>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div id="dash-empty" class="empty" style="display:none">
+    <div class="empty-icon">📬</div>
+    <div class="empty-h">No campaigns logged yet</div>
+    <div class="empty-p">Start tracking your direct mail to see what's working</div>
+    <button class="btn-start" onclick="showPage('add')">Log first campaign →</button>
+  </div>
+  <div id="dash-content">
+    <div class="section-label">Overview</div>
+    <div class="metrics-row" id="overview-metrics"></div>
+    <div class="spotlight-row" id="spotlight"></div>
+    <div class="section-label">Best performers</div>
+    <div class="winners-row" id="winners-row"></div>
+    <div class="chart-card">
+      <div class="chart-card-title">Response rate by campaign (top 12)</div>
+      <div style="position:relative;width:100%;height:240px"><canvas id="rateChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOG CAMPAIGN -->
+<div id="page-add" class="page">
+  <div class="form-card">
+    <div class="section-label" style="margin-bottom:20px">Campaign details</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>ZIP code</label>
+        <input id="f-zip" type="text" placeholder="e.g. 40202" maxlength="10">
+      </div>
+      <div class="field">
+        <label>List type</label>
+        <select id="f-list">
+          <option value="">— select —</option>
+          <option>Probate</option>
+          <option>Absentee owner</option>
+          <option>Vacant</option>
+          <option>Pre-foreclosure</option>
+          <option>Tax delinquent</option>
+          <option>High equity</option>
+          <option>Free &amp; clear</option>
+          <option>Divorce</option>
+          <option>Driving for dollars</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Mail type</label>
+        <select id="f-mail">
+          <option value="">— select —</option>
+          <option>Postcard</option>
+          <option>Letter</option>
+          <option>Handwritten letter</option>
+          <option>Yellow letter</option>
+          <option>Tri-fold mailer</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Color / style <span style="font-weight:400;color:var(--hint)">(optional)</span></label>
+        <input id="f-color" type="text" placeholder="e.g. yellow, white, blue">
+      </div>
+      <div class="field">
+        <label>Quantity sent</label>
+        <input id="f-qty" type="number" min="1" placeholder="500">
+      </div>
+      <div class="field">
+        <label>Date sent</label>
+        <input id="f-date" type="date">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-label" style="margin-bottom:16px">Response data</div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Total responses</label>
+        <input id="f-resp" type="number" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Calls <span style="font-weight:400;color:var(--hint)">(optional)</span></label>
+        <input id="f-calls" type="number" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Texts <span style="font-weight:400;color:var(--hint)">(optional)</span></label>
+        <input id="f-texts" type="number" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Form fills <span style="font-weight:400;color:var(--hint)">(optional)</span></label>
+        <input id="f-forms" type="number" min="0" placeholder="0">
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-save" onclick="addCampaign()">Save campaign</button>
+      <button class="btn-clear" onclick="clearForm()">Clear</button>
+      <span class="form-hint" id="form-msg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE -->
+<div id="page-compare" class="page">
+  <div class="filter-bar">
+    <span class="filter-label">Group by:</span>
+    <select id="cmp-group" onchange="renderCompare()">
+      <option value="zip">ZIP code</option>
+      <option value="list">List type</option>
+      <option value="mail">Mail type</option>
+      <option value="color">Color / style</option>
+    </select>
+    <span class="filter-label" style="margin-left:10px">Filter list type:</span>
+    <select id="cmp-list-filter" onchange="renderCompare()">
+      <option value="">All</option>
+    </select>
+    <span class="filter-label">Mail type:</span>
+    <select id="cmp-mail-filter" onchange="renderCompare()">
+      <option value="">All</option>
+    </select>
+  </div>
+  <div class="chart-card" id="cmp-chart-wrap" style="margin-bottom:16px">
+    <div class="chart-card-title" id="cmp-chart-title">Response rate by ZIP code</div>
+    <div style="position:relative;width:100%" id="cmp-chart-container">
+      <canvas id="cmpChart"></canvas>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th id="cmp-th-group">ZIP code</th>
+          <th>Campaigns</th>
+          <th>Total sent</th>
+          <th>Total responses</th>
+          <th>Avg response rate</th>
+          <th>Best rate</th>
+        </tr>
+      </thead>
+      <tbody id="cmp-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ALL CAMPAIGNS -->
+<div id="page-campaigns" class="page">
+  <div class="export-bar">
+    <div class="filter-bar" style="margin-bottom:0">
+    <span class="filter-label">ZIP:</span>
+    <select id="tbl-zip" onchange="renderTable()"><option value="">All</option></select>
+    <span class="filter-label">List type:</span>
+    <select id="tbl-list" onchange="renderTable()"><option value="">All</option></select>
+    <span class="filter-label">Mail type:</span>
+    <select id="tbl-mail" onchange="renderTable()"><option value="">All</option></select>
+    <span class="filter-label">Date from:</span>
+    <input type="date" id="tbl-date-from" onchange="renderTable()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:var(--sans);background:var(--surface);color:var(--text)">
+    <span class="filter-label">to:</span>
+    <input type="date" id="tbl-date-to" onchange="renderTable()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:var(--sans);background:var(--surface);color:var(--text)">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-export" onclick="exportPDF()">⬇ Save PDF</button>
+      <button class="btn-export" style="background:#1e4d2b" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>ZIP</th>
+          <th>List type</th>
+          <th>Mail type</th>
+          <th>Color</th>
+          <th>Sent</th>
+          <th>Responses</th>
+          <th>Calls</th>
+          <th>Texts</th>
+          <th>Forms</th>
+          <th>Rate</th>
+          <th>Per 100</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="campaigns-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit campaign</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <input type="hidden" id="edit-id">
+    <div class="section-label" style="margin-bottom:16px">Campaign details</div>
+    <div class="form-grid">
+      <div class="field"><label>ZIP code</label><input id="e-zip" type="text" maxlength="10"></div>
+      <div class="field"><label>List type</label>
+        <select id="e-list">
+          <option value="">— select —</option>
+          <option>Probate</option><option>Absentee owner</option><option>Vacant</option>
+          <option>Pre-foreclosure</option><option>Tax delinquent</option><option>High equity</option>
+          <option>Free &amp; clear</option><option>Divorce</option><option>Driving for dollars</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Mail type</label>
+        <select id="e-mail">
+          <option value="">— select —</option>
+          <option>Postcard</option><option>Letter</option><option>Handwritten letter</option>
+          <option>Yellow letter</option><option>Tri-fold mailer</option>
+        </select>
+      </div>
+      <div class="field"><label>Color / style</label><input id="e-color" type="text"></div>
+      <div class="field"><label>Quantity sent</label><input id="e-qty" type="number" min="1"></div>
+      <div class="field"><label>Date sent</label><input id="e-date" type="date"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-label" style="margin-bottom:16px">Response data</div>
+    <div class="form-grid">
+      <div class="field"><label>Total responses</label><input id="e-resp" type="number" min="0"></div>
+      <div class="field"><label>Calls</label><input id="e-calls" type="number" min="0"></div>
+      <div class="field"><label>Texts</label><input id="e-texts" type="number" min="0"></div>
+      <div class="field"><label>Form fills</label><input id="e-forms" type="number" min="0"></div>
+    </div>
+    <div class="form-actions" style="margin-top:24px;justify-content:space-between;flex-wrap:wrap">
+      <div style="display:flex;gap:10px">
+        <button class="btn-save" onclick="saveEdit()">Save changes</button>
+        <button class="btn-clear" onclick="closeModal()">Cancel</button>
+      </div>
+      <button class="btn-danger" onclick="deleteFromModal()">Delete campaign</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── DATA ────────────────────────────────────────────────
+const STORAGE_KEY = 'dmpt_campaigns_v1';
+let campaigns = [];
+let rateChartInst = null;
+let cmpChartInst = null;
+
+function load() {
+  try { campaigns = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { campaigns = []; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
+}
+
+// ── HELPERS ──────────────────────────────────────────────
+function rateOf(c) {
+  if (!c.qty || c.qty === 0) return 0;
+  return (c.responses / c.qty) * 100;
+}
+function per100(c) {
+  if (!c.qty || c.qty === 0) return 0;
+  return (c.responses / c.qty) * 100;
+}
+function ratePillClass(r) {
+  if (r >= 3) return 'rate-high';
+  if (r >= 1) return 'rate-mid';
+  return 'rate-low';
+}
+function fmtRate(r) { return r.toFixed(2) + '%'; }
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${m}/${day}/${y}`;
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ── NAV ──────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const tabs = { dashboard: 0, add: 1, compare: 2, campaigns: 3 };
+  document.querySelectorAll('.nav-tab')[tabs[id]].classList.add('active');
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'compare') renderCompare();
+  if (id === 'campaigns') renderTable();
+}
+
+// ── FORM ─────────────────────────────────────────────────
+function addCampaign() {
+  const zip   = document.getElementById('f-zip').value.trim();
+  const list  = document.getElementById('f-list').value;
+  const mail  = document.getElementById('f-mail').value;
+  const color = document.getElementById('f-color').value.trim();
+  const qty   = parseInt(document.getElementById('f-qty').value) || 0;
+  const date  = document.getElementById('f-date').value;
+  const resp  = parseInt(document.getElementById('f-resp').value) || 0;
+  const calls = parseInt(document.getElementById('f-calls').value) || 0;
+  const texts = parseInt(document.getElementById('f-texts').value) || 0;
+  const forms = parseInt(document.getElementById('f-forms').value) || 0;
+  const msg   = document.getElementById('form-msg');
+
+  if (!zip) { msg.textContent = 'ZIP code is required.'; msg.style.color = 'var(--red)'; return; }
+  if (!list) { msg.textContent = 'List type is required.'; msg.style.color = 'var(--red)'; return; }
+  if (!mail) { msg.textContent = 'Mail type is required.'; msg.style.color = 'var(--red)'; return; }
+  if (!qty)  { msg.textContent = 'Quantity sent is required.'; msg.style.color = 'var(--red)'; return; }
+
+  campaigns.push({ id: uid(), zip, list, mail, color, qty, date, responses: resp, calls, texts, forms });
+  save();
+  msg.textContent = '✓ Campaign saved.';
+  msg.style.color = 'var(--green)';
+  setTimeout(() => { msg.textContent = ''; }, 2500);
+  toast('Campaign saved');
+}
+
+function clearForm() {
+  ['f-zip','f-list','f-mail','f-color','f-qty','f-date','f-resp','f-calls','f-texts','f-forms'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = el.tagName === 'SELECT' ? '' : '';
+  });
+  document.getElementById('form-msg').textContent = '';
+}
+
+// ── DASHBOARD ────────────────────────────────────────────
+function renderDashboard() {
+  const empty = document.getElementById('dash-empty');
+  const content = document.getElementById('dash-content');
+
+  if (campaigns.length === 0) {
+    empty.style.display = 'block';
+    content.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  content.style.display = 'block';
+
+  // Overview metrics
+  const totalSent = campaigns.reduce((s,c) => s + c.qty, 0);
+  const totalResp = campaigns.reduce((s,c) => s + c.responses, 0);
+  const avgRate = totalSent > 0 ? (totalResp / totalSent) * 100 : 0;
+  const rates = campaigns.map(rateOf);
+  const maxRate = Math.max(...rates);
+
+  document.getElementById('overview-metrics').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-card-label">Total campaigns</div>
+      <div class="metric-card-value">${campaigns.length}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Total mail sent</div>
+      <div class="metric-card-value">${totalSent.toLocaleString()}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Total responses</div>
+      <div class="metric-card-value">${totalResp.toLocaleString()}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Avg response rate</div>
+      <div class="metric-card-value">${avgRate.toFixed(2)}%</div>
+      <div class="metric-card-sub">across all campaigns</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-label">Best response rate</div>
+      <div class="metric-card-value">${maxRate.toFixed(2)}%</div>
+      <div class="metric-card-sub">single campaign</div>
+    </div>
+  `;
+
+  // Top / Worst
+  const sorted = [...campaigns].sort((a,b) => rateOf(b) - rateOf(a));
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  document.getElementById('spotlight').innerHTML = `
+    <div class="spotlight-card best">
+      <div class="spotlight-tag best">🏆 Top campaign</div>
+      <div class="spotlight-name">${best.zip} · ${best.list} · ${best.mail}</div>
+      <div class="spotlight-detail">${best.qty.toLocaleString()} sent · ${fmtDate(best.date)}</div>
+      <div class="spotlight-rate">${fmtRate(rateOf(best))}</div>
+    </div>
+    <div class="spotlight-card worst">
+      <div class="spotlight-tag worst">↓ Lowest performer</div>
+      <div class="spotlight-name">${worst.zip} · ${worst.list} · ${worst.mail}</div>
+      <div class="spotlight-detail">${worst.qty.toLocaleString()} sent · ${fmtDate(worst.date)}</div>
+      <div class="spotlight-rate">${fmtRate(rateOf(worst))}</div>
+    </div>
+  `;
+
+  // Winners
+  function bestBy(key) {
+    const map = {};
+    campaigns.forEach(c => {
+      const k = c[key] || '—';
+      if (!map[k]) map[k] = { total: 0, sent: 0 };
+      map[k].total += c.responses;
+      map[k].sent  += c.qty;
+    });
+    let bestKey = null, bestVal = -1;
+    for (const k in map) {
+      const r = map[k].sent > 0 ? (map[k].total / map[k].sent) * 100 : 0;
+      if (r > bestVal) { bestVal = r; bestKey = k; }
+    }
+    return { key: bestKey, rate: bestVal };
+  }
+  const bZip  = bestBy('zip');
+  const bList = bestBy('list');
+  const bMail = bestBy('mail');
+  const bColor = bestBy('color');
+  const icons = { zip: '📍', list: '📋', mail: '📨', color: '🎨' };
+  document.getElementById('winners-row').innerHTML = [
+    { cat: 'Best ZIP code',    k: bZip.key,   r: bZip.rate,   icon: '📍' },
+    { cat: 'Best list type',   k: bList.key,  r: bList.rate,  icon: '📋' },
+    { cat: 'Best mail type',   k: bMail.key,  r: bMail.rate,  icon: '📨' },
+    { cat: 'Best color/style', k: bColor.key || '—', r: bColor.rate, icon: '🎨' },
+  ].map(w => `
+    <div class="winner-card">
+      <div class="winner-cat">${w.cat}</div>
+      <div class="winner-icon">${w.icon}</div>
+      <div class="winner-name">${w.k}</div>
+      <div class="winner-rate">${fmtRate(w.r)} avg rate</div>
+    </div>
+  `).join('');
+
+  // Rate chart
+  const top12 = sorted.slice(0, 12);
+  const labels = top12.map(c => `${c.zip} · ${c.list.split(' ')[0]}`);
+  const data   = top12.map(c => parseFloat(rateOf(c).toFixed(2)));
+  const colors = data.map(r => r >= 3 ? '#2d6e3a' : r >= 1 ? '#c97d0c' : '#943030');
+
+  if (rateChartInst) rateChartInst.destroy();
+  rateChartInst = new Chart(document.getElementById('rateChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Response rate %', data, backgroundColor: colors, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 11 }, color: '#6b6860', maxRotation: 35, autoSkip: false }, grid: { display: false } },
+        y: { ticks: { font: { size: 11 }, color: '#6b6860', callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── COMPARE ──────────────────────────────────────────────
+function renderCompare() {
+  const group = document.getElementById('cmp-group').value;
+  const listF = document.getElementById('cmp-list-filter').value;
+  const mailF = document.getElementById('cmp-mail-filter').value;
+
+  // populate filters
+  const lists = [...new Set(campaigns.map(c => c.list).filter(Boolean))];
+  const mails = [...new Set(campaigns.map(c => c.mail).filter(Boolean))];
+  const lSel = document.getElementById('cmp-list-filter');
+  const curL = lSel.value;
+  lSel.innerHTML = '<option value="">All</option>' + lists.map(l => `<option ${l===curL?'selected':''}>${l}</option>`).join('');
+  const mSel = document.getElementById('cmp-mail-filter');
+  const curM = mSel.value;
+  mSel.innerHTML = '<option value="">All</option>' + mails.map(m => `<option ${m===curM?'selected':''}>${m}</option>`).join('');
+
+  let data = campaigns.filter(c =>
+    (!listF || c.list === listF) &&
+    (!mailF || c.mail === mailF)
+  );
+
+  if (data.length === 0) {
+    document.getElementById('cmp-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No campaigns match the selected filters</td></tr>`;
+    if (cmpChartInst) { cmpChartInst.destroy(); cmpChartInst = null; }
+    return;
+  }
+
+  // Group
+  const groupMap = {};
+  data.forEach(c => {
+    const k = (c[group] || '—').toString();
+    if (!groupMap[k]) groupMap[k] = [];
+    groupMap[k].push(c);
+  });
+
+  const groupNames = { zip: 'ZIP code', list: 'List type', mail: 'Mail type', color: 'Color / style' };
+  document.getElementById('cmp-th-group').textContent = groupNames[group];
+  document.getElementById('cmp-chart-title').textContent = `Avg response rate by ${groupNames[group].toLowerCase()}`;
+
+  const rows = Object.entries(groupMap).map(([k, cs]) => {
+    const totalSent = cs.reduce((s,c) => s + c.qty, 0);
+    const totalResp = cs.reduce((s,c) => s + c.responses, 0);
+    const avg = totalSent > 0 ? (totalResp / totalSent) * 100 : 0;
+    const best = Math.max(...cs.map(rateOf));
+    return { k, count: cs.length, totalSent, totalResp, avg, best };
+  }).sort((a,b) => b.avg - a.avg);
+
+  // Chart
+  const chartH = Math.max(200, rows.length * 38 + 60);
+  document.getElementById('cmp-chart-container').style.height = chartH + 'px';
+  if (cmpChartInst) cmpChartInst.destroy();
+  cmpChartInst = new Chart(document.getElementById('cmpChart'), {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.k),
+      datasets: [{
+        label: 'Avg response rate %',
+        data: rows.map(r => parseFloat(r.avg.toFixed(2))),
+        backgroundColor: rows.map(r => r.avg >= 3 ? '#2d6e3a' : r.avg >= 1 ? '#c97d0c' : '#943030'),
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font:{size:11}, color:'#6b6860', callback: v => v+'%' }, grid:{color:'rgba(0,0,0,0.05)'} },
+        y: { ticks: { font:{size:11}, color:'#6b6860' }, grid:{display:false} }
+      }
+    }
+  });
+
+  // Table
+  document.getElementById('cmp-tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td style="font-weight:500">${r.k}</td>
+      <td>${r.count}</td>
+      <td>${r.totalSent.toLocaleString()}</td>
+      <td>${r.totalResp.toLocaleString()}</td>
+      <td><span class="rate-pill ${ratePillClass(r.avg)}">${fmtRate(r.avg)}</span></td>
+      <td><span class="rate-pill ${ratePillClass(r.best)}">${fmtRate(r.best)}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ── TABLE ────────────────────────────────────────────────
+function renderTable() {
+  const zipF  = document.getElementById('tbl-zip').value;
+  const listF = document.getElementById('tbl-list').value;
+  const mailF = document.getElementById('tbl-mail').value;
+  const dateF = document.getElementById('tbl-date-from').value;
+  const dateT = document.getElementById('tbl-date-to').value;
+
+  // Populate filters
+  const zips  = [...new Set(campaigns.map(c=>c.zip).filter(Boolean))].sort();
+  const lists = [...new Set(campaigns.map(c=>c.list).filter(Boolean))].sort();
+  const mails = [...new Set(campaigns.map(c=>c.mail).filter(Boolean))].sort();
+
+  const zEl = document.getElementById('tbl-zip');
+  const curZ = zEl.value;
+  zEl.innerHTML = '<option value="">All ZIPs</option>' + zips.map(z=>`<option ${z===curZ?'selected':''}>${z}</option>`).join('');
+  const lEl = document.getElementById('tbl-list');
+  const curL = lEl.value;
+  lEl.innerHTML = '<option value="">All list types</option>' + lists.map(l=>`<option ${l===curL?'selected':''}>${l}</option>`).join('');
+  const mEl = document.getElementById('tbl-mail');
+  const curM = mEl.value;
+  mEl.innerHTML = '<option value="">All mail types</option>' + mails.map(m=>`<option ${m===curM?'selected':''}>${m}</option>`).join('');
+
+  let data = [...campaigns].filter(c =>
+    (!zipF  || c.zip  === zipF)  &&
+    (!listF || c.list === listF) &&
+    (!mailF || c.mail === mailF) &&
+    (!dateF || c.date >= dateF)  &&
+    (!dateT || c.date <= dateT)
+  ).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  const tbody = document.getElementById('campaigns-tbody');
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--muted)">No campaigns match the selected filters</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(c => {
+    const rate = rateOf(c);
+    return `
+      <tr>
+        <td style="color:var(--muted);font-size:12px">${fmtDate(c.date)}</td>
+        <td style="font-weight:500;font-family:var(--mono)">${c.zip}</td>
+        <td>${c.list}</td>
+        <td>${c.mail}</td>
+        <td style="color:var(--muted)">${c.color || '—'}</td>
+        <td style="font-family:var(--mono)">${c.qty.toLocaleString()}</td>
+        <td style="font-family:var(--mono)">${c.responses.toLocaleString()}</td>
+        <td style="color:var(--muted);font-family:var(--mono)">${c.calls||0}</td>
+        <td style="color:var(--muted);font-family:var(--mono)">${c.texts||0}</td>
+        <td style="color:var(--muted);font-family:var(--mono)">${c.forms||0}</td>
+        <td><span class="rate-pill ${ratePillClass(rate)}">${fmtRate(rate)}</span></td>
+        <td style="font-family:var(--mono);color:var(--muted)">${per100(c).toFixed(2)}</td>
+        <td style="white-space:nowrap">
+          <button class="edit-btn" onclick="openEdit('${c.id}')" title="Edit">✎</button>
+          <button class="del-btn" onclick="deleteCampaign('${c.id}')" title="Delete">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function deleteCampaign(id) {
+  if (!confirm('Delete this campaign?')) return;
+  campaigns = campaigns.filter(c => c.id !== id);
+  save();
+  renderTable();
+  toast('Campaign deleted');
+}
+
+// ── EDIT MODAL ───────────────────────────────────────────
+function openEdit(id) {
+  const c = campaigns.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('edit-id').value = id;
+  document.getElementById('e-zip').value   = c.zip   || '';
+  document.getElementById('e-list').value  = c.list  || '';
+  document.getElementById('e-mail').value  = c.mail  || '';
+  document.getElementById('e-color').value = c.color || '';
+  document.getElementById('e-qty').value   = c.qty   || '';
+  document.getElementById('e-date').value  = c.date  || '';
+  document.getElementById('e-resp').value  = c.responses || 0;
+  document.getElementById('e-calls').value = c.calls || 0;
+  document.getElementById('e-texts').value = c.texts || 0;
+  document.getElementById('e-forms').value = c.forms || 0;
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const idx = campaigns.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  campaigns[idx] = {
+    ...campaigns[idx],
+    zip:       document.getElementById('e-zip').value.trim(),
+    list:      document.getElementById('e-list').value,
+    mail:      document.getElementById('e-mail').value,
+    color:     document.getElementById('e-color').value.trim(),
+    qty:       parseInt(document.getElementById('e-qty').value) || 0,
+    date:      document.getElementById('e-date').value,
+    responses: parseInt(document.getElementById('e-resp').value) || 0,
+    calls:     parseInt(document.getElementById('e-calls').value) || 0,
+    texts:     parseInt(document.getElementById('e-texts').value) || 0,
+    forms:     parseInt(document.getElementById('e-forms').value) || 0,
+  };
+  save();
+  closeModal();
+  renderTable();
+  toast('Campaign updated');
+}
+
+function deleteFromModal() {
+  const id = document.getElementById('edit-id').value;
+  if (!confirm('Delete this campaign? This cannot be undone.')) return;
+  campaigns = campaigns.filter(c => c.id !== id);
+  save();
+  closeModal();
+  renderTable();
+  toast('Campaign deleted');
+}
+
+// Close modal on backdrop click
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── PDF EXPORT ───────────────────────────────────────────
+function exportPDF() {
+  const now = new Date();
+  const monthYear = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Collect current filtered data
+  const zipF  = document.getElementById('tbl-zip').value;
+  const listF = document.getElementById('tbl-list').value;
+  const mailF = document.getElementById('tbl-mail').value;
+  const dateF = document.getElementById('tbl-date-from').value;
+  const dateT = document.getElementById('tbl-date-to').value;
+
+  let data = [...campaigns].filter(c =>
+    (!zipF  || c.zip  === zipF)  &&
+    (!listF || c.list === listF) &&
+    (!mailF || c.mail === mailF) &&
+    (!dateF || c.date >= dateF)  &&
+    (!dateT || c.date <= dateT)
+  ).sort((a,b) => rateOf(b) - rateOf(a));
+
+  const totalSent = data.reduce((s,c) => s + c.qty, 0);
+  const totalResp = data.reduce((s,c) => s + c.responses, 0);
+  const avgRate   = totalSent > 0 ? (totalResp / totalSent * 100).toFixed(2) : '0.00';
+
+  // Best performers
+  function bestBy(key) {
+    const map = {};
+    data.forEach(c => {
+      const k = c[key] || '—';
+      if (!map[k]) map[k] = { total: 0, sent: 0 };
+      map[k].total += c.responses;
+      map[k].sent  += c.qty;
+    });
+    let bestKey = '—', bestVal = -1;
+    for (const k in map) {
+      const r = map[k].sent > 0 ? (map[k].total / map[k].sent) * 100 : 0;
+      if (r > bestVal) { bestVal = r; bestKey = k; }
+    }
+    return { key: bestKey, rate: bestVal.toFixed(2) };
+  }
+
+  const bZip  = bestBy('zip');
+  const bList = bestBy('list');
+  const bMail = bestBy('mail');
+
+  const rows = data.map(c => {
+    const r = rateOf(c);
+    const color = r >= 3 ? '#2d6e3a' : r >= 1 ? '#c97d0c' : '#943030';
+    const bg    = r >= 3 ? '#e8f3e9' : r >= 1 ? '#fef0d6' : '#fceaea';
+    return `
+      <tr>
+        <td>${fmtDate(c.date)}</td>
+        <td><strong>${c.zip}</strong></td>
+        <td>${c.list}</td>
+        <td>${c.mail}</td>
+        <td>${c.color || '—'}</td>
+        <td style="text-align:right">${c.qty.toLocaleString()}</td>
+        <td style="text-align:right">${c.responses}</td>
+        <td style="text-align:right;font-weight:600">
+          <span style="background:${bg};color:${color};padding:2px 8px;border-radius:12px;font-size:11px">${r.toFixed(2)}%</span>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Direct Mail Report — ${monthYear}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; color: #1a1a1a; padding: 36px 40px; font-size: 13px; }
+  .header { border-bottom: 2px solid #161616; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header .date { font-size: 12px; color: #6b6860; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .s-card { border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 14px 16px; }
+  .s-label { font-size: 10px; color: #9c9890; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+  .s-val { font-size: 22px; font-weight: 300; font-family: 'DM Mono', monospace; }
+  .best-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+  .b-card { background: #f9f8f5; border-radius: 8px; padding: 12px 14px; }
+  .b-cat { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #9c9890; margin-bottom: 6px; }
+  .b-name { font-size: 14px; font-weight: 500; }
+  .b-rate { font-size: 12px; color: #c97d0c; font-family: 'DM Mono', monospace; margin-top: 3px; }
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #9c9890; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: #f4f2ee; }
+  th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9c9890; }
+  td { padding: 9px 12px; border-bottom: 1px solid rgba(0,0,0,0.07); }
+  tr:last-child td { border-bottom: none; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.1); font-size: 11px; color: #9c9890; display: flex; justify-content: space-between; }
+  @media print { @page { margin: 15mm; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>✉ Direct Mail Performance Report</h1>
+      <div class="date" style="margin-top:4px">Generated ${now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })} · ${data.length} campaign${data.length !== 1 ? 's' : ''}</div>
+    </div>
+  </div>
+  <div class="summary">
+    <div class="s-card"><div class="s-label">Total campaigns</div><div class="s-val">${data.length}</div></div>
+    <div class="s-card"><div class="s-label">Total mail sent</div><div class="s-val">${totalSent.toLocaleString()}</div></div>
+    <div class="s-card"><div class="s-label">Total responses</div><div class="s-val">${totalResp.toLocaleString()}</div></div>
+    <div class="s-card"><div class="s-label">Avg response rate</div><div class="s-val">${avgRate}%</div></div>
+  </div>
+  <h2 style="margin-bottom:10px">Best performers</h2>
+  <div class="best-row" style="margin-bottom:28px">
+    <div class="b-card"><div class="b-cat">Best ZIP code</div><div class="b-name">${bZip.key}</div><div class="b-rate">${bZip.rate}% avg</div></div>
+    <div class="b-card"><div class="b-cat">Best list type</div><div class="b-name">${bList.key}</div><div class="b-rate">${bList.rate}% avg</div></div>
+    <div class="b-card"><div class="b-cat">Best mail type</div><div class="b-name">${bMail.key}</div><div class="b-rate">${bMail.rate}% avg</div></div>
+  </div>
+  <h2>All campaigns — sorted by response rate</h2>
+  <table>
+    <thead><tr><th>Date</th><th>ZIP</th><th>List type</th><th>Mail type</th><th>Color</th><th style="text-align:right">Sent</th><th style="text-align:right">Responses</th><th style="text-align:right">Rate</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">
+    <span>Direct Mail Performance Tracker</span>
+    <span>${monthYear} Report</span>
+  </div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) toast('Allow popups to open the PDF report');
+  else toast('Print dialog opening — choose "Save as PDF"');
+}
+
+// ── CSV EXPORT ───────────────────────────────────────────
+function exportCSV() {
+  const zipF  = document.getElementById('tbl-zip').value;
+  const listF = document.getElementById('tbl-list').value;
+  const mailF = document.getElementById('tbl-mail').value;
+  const dateF = document.getElementById('tbl-date-from').value;
+  const dateT = document.getElementById('tbl-date-to').value;
+
+  let data = [...campaigns].filter(c =>
+    (!zipF  || c.zip  === zipF)  &&
+    (!listF || c.list === listF) &&
+    (!mailF || c.mail === mailF) &&
+    (!dateF || c.date >= dateF)  &&
+    (!dateT || c.date <= dateT)
+  ).sort((a,b) => rateOf(b) - rateOf(a));
+
+  const headers = ['Date','ZIP','List Type','Mail Type','Color','Qty Sent','Responses','Calls','Texts','Forms','Response Rate %','Per 100'];
+  const csvRows = [headers.join(',')];
+  data.forEach(c => {
+    csvRows.push([
+      c.date || '', c.zip, `"${c.list}"`, `"${c.mail}"`, c.color || '',
+      c.qty, c.responses, c.calls||0, c.texts||0, c.forms||0,
+      rateOf(c).toFixed(2), per100(c).toFixed(2)
+    ].join(','));
+  });
+
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const now  = new Date();
+  a.href = url;
+  a.download = `direct-mail-report-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded');
+}
+
+// ── SEED DEMO DATA ────────────────────────────────────────
+function seedDemo() {
+  if (campaigns.length > 0) return;
+  const demoData = [
+    { zip:'40202', list:'Probate',        mail:'Postcard',          color:'yellow', qty:500,  date:'2025-01-10', responses:22, calls:14, texts:5, forms:3 },
+    { zip:'40202', list:'Absentee owner', mail:'Letter',            color:'white',  qty:400,  date:'2025-01-22', responses:8,  calls:5,  texts:2, forms:1 },
+    { zip:'40205', list:'Vacant',         mail:'Handwritten letter',color:'',       qty:200,  date:'2025-02-05', responses:14, calls:9,  texts:3, forms:2 },
+    { zip:'40205', list:'Tax delinquent', mail:'Yellow letter',     color:'yellow', qty:350,  date:'2025-02-18', responses:6,  calls:4,  texts:1, forms:1 },
+    { zip:'40214', list:'Pre-foreclosure',mail:'Postcard',          color:'blue',   qty:600,  date:'2025-03-01', responses:9,  calls:6,  texts:2, forms:1 },
+    { zip:'40214', list:'Probate',        mail:'Letter',            color:'white',  qty:450,  date:'2025-03-15', responses:19, calls:12, texts:5, forms:2 },
+    { zip:'40218', list:'Absentee owner', mail:'Postcard',          color:'red',    qty:700,  date:'2025-04-02', responses:11, calls:7,  texts:3, forms:1 },
+    { zip:'40218', list:'Vacant',         mail:'Handwritten letter',color:'',       qty:180,  date:'2025-04-20', responses:12, calls:8,  texts:3, forms:1 },
+    { zip:'40220', list:'High equity',    mail:'Tri-fold mailer',   color:'white',  qty:300,  date:'2025-05-05', responses:3,  calls:2,  texts:1, forms:0 },
+    { zip:'40220', list:'Free & clear',   mail:'Letter',            color:'yellow', qty:250,  date:'2025-05-18', responses:5,  calls:3,  texts:1, forms:1 },
+  ].map(c => ({ ...c, id: uid() }));
+  campaigns = demoData;
+  save();
+}
+
+// ── INIT ─────────────────────────────────────────────────
+load();
+seedDemo();
+renderDashboard();
+</script>
+</body>
+</html>
